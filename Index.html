@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carson's Digital Nexus - [Your Name]</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Three.js for 3D graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            background-color: #0f172a; /* Fallback base dark color */
+            position: relative; /* Needed for z-index of other elements */
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Custom scrollbar for a sleek look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; /* Slate-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #60a5fa; /* Blue-400 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6; /* Blue-500 */
+        }
+
+        /* Starfield Canvas Styling */
+        #starfield-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2; /* Behind all content and gradient overlay */
+            pointer-events: none; /* Allow clicks to pass through to elements below */
+        }
+
+        /* Gradient overlay for sections */
+        .gradient-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.5) 50%, rgba(15, 23, 42, 0.9) 100%);
+            z-index: -1; /* Placed between canvas (-2) and content (>=1) */
+        }
+
+        /* Ensure main content sections are above background elements */
+        section {
+            position: relative; /* Establish stacking context */
+            z-index: 1; /* Ensures sections are above fixed background */
+        }
+        section > div { /* The actual content cards within sections */
+            position: relative; /* Make sure these stack correctly above the fixed background */
+            z-index: 30; /* Higher than gradient overlay */
+        }
+
+        /* Parallax effect for sections (simulated with background-position - now relies on body bg) */
+        .parallax-bg {
+            background-attachment: fixed;
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+
+        /* Custom animation for typing effect */
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: white; }
+        }
+
+        .typing-text {
+            overflow: hidden; /* Ensures the text is hidden until typed */
+            border-right: .15em solid orange; /* The caret */
+            white-space: nowrap; /* Keeps the content on a single line */
+            margin: 0 auto; /* Centers the text */
+            letter-spacing: .15em; /* Adjust as needed */
+            animation:
+                typing 3.5s steps(40, end),
+                blink-caret .75s step-end infinite;
+        }
+
+        /* Card hover effects and new animated border */
+        .card-hover {
+            transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+            position: relative; /* For the pseudo-element border */
+            overflow: hidden; /* Crucial for pseudo-element border masking */
+        }
+        .card-hover:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Animated pseudo-element border for cards on hover */
+        .card-hover::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #4f46e5, #ec4899, #10b981); /* Indigo, Pink, Emerald */
+            z-index: -1;
+            border-radius: inherit; /* Inherit border-radius from parent */
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+            filter: blur(8px); /* Subtle blur for glow effect */
+        }
+
+        .card-hover:hover::before {
+            opacity: 1;
+            animation: rotate-border 4s linear infinite;
+        }
+
+        @keyframes rotate-border {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        /* Animated Button Glow Effect */
+        .button-glow-effect {
+            position: relative;
+            overflow: hidden;
+            z-index: 1; /* Ensure text is above pseudo-element */
+        }
+
+        .button-glow-effect::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%);
+            border-radius: 50%;
+            opacity: 0;
+            transform: translate(-50%, -50%);
+            transition: width 0.4s ease-out, height 0.4s ease-out, opacity 0.4s ease-out;
+            z-index: -1;
+        }
+
+        .button-glow-effect:hover::before {
+            width: 200%;
+            height: 200%;
+            opacity: 1;
+        }
+
+        /* Smooth scroll for navigation */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Program Showcase Specific Styles */
+        .program-visual {
+            background-color: #1e293b; /* Slate-800 */
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            min-height: 400px; /* Ensure sufficient height for visuals */
+            display: none; /* Hidden by default */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155; /* Slate-700 */
+        }
+        .program-visual.active {
+            display: block; /* Active tab is shown */
+        }
+
+        /* Tkinter-like styling for mockups */
+        .tkinter-mockup {
+            background-color: #f0f0f0; /* Light gray for Tkinter window */
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            max-width: 600px; /* Limit mockup width */
+            margin: 0 auto; /* Center mockup */
+        }
+        .tkinter-mockup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #e0e0e0;
+            border-bottom: 1px solid #bbb;
+            padding: 5px 10px;
+            font-weight: bold;
+            font-size: 0.875rem;
+            color: #555;
+            border-radius: 3px 3px 0 0;
+        }
+        .tkinter-mockup-content {
+            padding: 10px;
+        }
+        .tkinter-mockup-button {
+            background-color: #0078d7; /* Standard Windows button blue */
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 0.875rem;
+            cursor: default; /* Indicate non-interactable */
+            opacity: 0.8; /* Make it look like a static image */
+        }
+        .tkinter-mockup-input {
+            border: 1px solid #ccc;
+            padding: 4px;
+            border-radius: 3px;
+            background-color: white;
+            color: #333;
+            font-size: 0.875rem;
+            opacity: 0.7;
+        }
+        .tkinter-mockup-combobox {
+            border: 1px solid #ccc;
+            padding: 4px;
+            border-radius: 3px;
+            background-color: white;
+            color: #333;
+            font-size: 0.875rem;
+            opacity: 0.7;
+            pointer-events: none; /* Disable interaction */
+        }
+        .tkinter-mockup-progressbar {
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 5px;
+            opacity: 0.7;
+        }
+        .tkinter-mockup-progressbar-fill {
+            height: 100%;
+            width: 50%; /* Example fill */
+            background-color: #43b581; /* Green accent */
+            border-radius: 5px;
+        }
+        .tkinter-mockup-treemap-area {
+            background-color: #d0d0d0;
+            min-height: 200px;
+            border: 1px solid #bbb;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 3px;
+        }
+        .treemap-block {
+            position: absolute;
+            background-color: #7289da;
+            border: 1px solid #5d70b7;
+            font-size: 0.6rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            opacity: 0.9;
+        }
+        .treemap-block:nth-child(2) { background-color: #43b581; }
+        .treemap-block:nth-child(3) { background-color: #a3a3a3; }
+
+        /* BR-3 specific styles */
+        .br3-mockup .tkinter-mockup-header {
+            background-color: #333;
+            color: white;
+        }
+        .br3-mockup .tkinter-mockup-content {
+            background-color: #444;
+            color: #eee;
+        }
+        .br3-mockup .tkinter-mockup-button {
+            background-color: #4CAF50;
+        }
+        .br3-mockup .tkinter-mockup-input {
+            background-color: #555;
+            color: #eee;
+            border-color: #666;
+        }
+        .br3-mockup .radio-option {
+            opacity: 0.8;
+            cursor: default;
+        }
+        .br3-mockup .slider-mock {
+            background-color: #555;
+            height: 8px;
+            border-radius: 4px;
+            position: relative;
+            margin: 5px 0;
+            opacity: 0.8;
+        }
+        .br3-mockup .slider-mock::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 30%; /* Example fill */
+            background-color: #1976D2;
+            border-radius: 4px;
+        }
+        .br3-mockup .mock-text-area {
+            background-color: #222;
+            min-height: 120px;
+            border: 1px solid #555;
+            padding: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.7rem;
+            color: #ccc;
+            overflow: auto;
+            border-radius: 3px;
+        }
+
+        /* YT Shorts Creator specific styles */
+        .yt-shorts-mockup .tkinter-mockup-header {
+            background-color: #a333c8; /* Purple-ish title bar */
+            color: white;
+        }
+        .yt-shorts-mockup .tkinter-mockup-content {
+            background-color: #2a2a2a; /* Darker content area */
+            color: #e0e0e0;
+        }
+        .yt-shorts-mockup .tkinter-mockup-button {
+            background-color: #c84000; /* Orange-red for buttons */
+        }
+        .yt-shorts-mockup .ttk-label-frame-text {
+            color: #ffaa00; /* Yellow-orange for label frames */
+        }
+        .yt-shorts-mockup .ttk-entry {
+            background-color: #3a3a3a;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+        .yt-shorts-mockup .ttk-progressbar .background {
+            background-color: #555;
+        }
+        .yt-shorts-mockup .ttk-progressbar .trough {
+            background-color: #333;
+        }
+        .yt-shorts-mockup .ttk-progressbar .block {
+            background-color: #4CAF50; /* Green progress fill */
+        }
+        .yt-shorts-mockup .status-label {
+            color: #c0c0c0;
+        }
+        .yt-shorts-mockup .text-area-mock {
+            background-color: #1a1a1a;
+            border: 1px solid #444;
+            min-height: 80px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.7rem;
+            color: #88cc88; /* Green text for status */
+            overflow: auto;
+            border-radius: 3px;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body class="text-white bg-slate-900" oncontextmenu="return false;">
+
+    <!-- Starfield Canvas -->
+    <canvas id="starfield-canvas"></canvas>
+
+    <!-- Navigation Bar -->
+    <nav class="fixed top-0 left-0 w-full bg-slate-900 bg-opacity-80 backdrop-blur-md z-50 shadow-lg py-4 px-6 md:px-12 rounded-b-xl">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="#" class="text-2xl font-bold text-blue-400 hover:text-blue-300 transition-colors duration-300">
+                <i class="fas fa-space-shuttle mr-2"></i>Carson's Digital Nexus
+            </a>
+            <div class="hidden md:flex space-x-8">
+                <a href="#about" class="text-lg text-slate-200 hover:text-blue-400 transition-colors duration-300">About Me</a>
+                <a href="#gaming" class="text-lg text-slate-200 hover:text-blue-400 transition-colors duration-300">My Gaming Journey</a>
+                <a href="#coding" class="text-lg text-slate-200 hover:text-blue-400 transition-colors duration-300">Learning to Code</a>
+                <a href="#my-programs" class="text-lg text-slate-200 hover:text-blue-400 transition-colors duration-300">My Programs</a>
+                <a href="#contact" class="text-lg text-slate-200 hover:text-blue-400 transition-colors duration-300">Contact</a>
+            </div>
+            <!-- Mobile Menu Button -->
+            <button id="mobile-menu-button" class="md:hidden text-white text-2xl focus:outline-none">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden absolute top-full left-0 w-full bg-slate-800 bg-opacity-95 rounded-b-lg shadow-xl py-4">
+            <a href="#about" class="block py-2 px-6 text-slate-200 hover:bg-slate-700 transition-colors duration-300">About Me</a>
+            <a href="#gaming" class="block py-2 px-6 text-slate-200 hover:bg-slate-700 transition-colors duration-300">My Gaming Journey</a>
+            <a href="#coding" class="block py-2 px-6 text-slate-200 hover:bg-slate-700 transition-colors duration-300">Learning to Code</a>
+            <a href="#my-programs" class="block py-2 px-6 text-slate-200 hover:bg-slate-700 transition-colors duration-300">My Programs</a>
+            <a href="#contact" class="block py-2 px-6 text-slate-200 hover:bg-slate-700 transition-colors duration-300">Contact</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="relative flex items-center justify-center h-screen text-center overflow-hidden hero-bg parallax-bg">
+        <div class="gradient-overlay"></div>
+        <div class="relative z-30 p-8">
+            <h1 class="text-5xl md:text-7xl font-extrabold text-white mb-4 drop-shadow-2xl typing-text">
+                Greetings, Traveler!
+            </h1>
+            <p class="text-xl md:text-3xl text-blue-200 drop-shadow-lg">
+                I'm a 27-year-old Gamer from Ohio, embarking on a new quest in the world of Code.
+            </p>
+            <button onclick="document.getElementById('about').scrollIntoView({ behavior: 'smooth' });"
+                    class="mt-8 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full shadow-lg transition-all duration-300 transform hover:scale-105
+                           text-lg md:text-xl relative overflow-hidden group button-glow-effect">
+                Explore My Universe
+                <span class="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 mix-blend-lighten"></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- About Me Section -->
+    <section id="about" class="relative py-20 px-6 md:px-12 bg-slate-900 about-bg parallax-bg text-center">
+        <div class="gradient-overlay"></div>
+        <div class="relative z-30 container mx-auto bg-slate-800 bg-opacity-70 rounded-3xl p-8 md:p-12 shadow-2xl card-hover">
+            <h2 class="text-4xl md:text-5xl font-bold text-blue-400 mb-6 flex items-center justify-center">
+                <i class="fas fa-user-astronaut mr-4 text-blue-300"></i>About Me
+            </h2>
+            <div class="flex flex-col md:flex-row items-center gap-8">
+                <!-- Avatar removed as requested -->
+                <div class="md:w-full text-left">
+                    <p class="text-lg md:text-xl leading-relaxed text-slate-200 mb-4">
+                        Born and raised in the heart of Ohio, I'm a 27-year-old enthusiast with a lifelong passion for digital worlds. My journey through life has been as dynamic as a well-played game, filled with challenges, discoveries, and continuous learning.
+                    </p>
+                    <p class="text-lg md:text-xl leading-relaxed text-slate-200 mb-4">
+                        My foundational steps into the tech world began at **Butler Tech**, in the **Information Technology class**, where I honed my early skills and graduated in **2017**. This experience laid the groundwork for my ongoing exploration of coding and digital creation.
+                    </p>
+                    <p class="text-lg md:text-xl leading-relaxed text-slate-200 mb-6">
+                        As they say in the world of IT, <span class="italic text-blue-300">"You don't need to know everything, but you need to know how to find the answer."</span> This philosophy drives my approach to both gaming challenges and coding puzzles, constantly seeking solutions and expanding my knowledge base.
+                    </p>
+                    <p class="text-lg md:text-xl leading-relaxed text-slate-200">
+                        When I'm not navigating virtual landscapes, I'm charting new courses in the realm of programming. This website is a small peek into my world – a fusion of gaming passion and the thrilling adventure of becoming a coder. I believe in embracing new challenges and constantly expanding my horizons.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- My Gaming Journey Section -->
+    <section id="gaming" class="relative py-20 px-6 md:px-12 bg-slate-900 gaming-bg parallax-bg text-center">
+        <div class="gradient-overlay"></div>
+        <div class="relative z-30 container mx-auto bg-slate-800 bg-opacity-70 rounded-3xl p-8 md:p-12 shadow-2xl card-hover">
+            <h2 class="text-4xl md:text-5xl font-bold text-purple-400 mb-6 flex items-center justify-center">
+                <i class="fas fa-gamepad mr-4 text-purple-300"></i>My Gaming Odyssey
+            </h2>
+            <p class="text-lg md:text-xl leading-relaxed text-slate-200 mb-8">
+                From retro classics to cutting-edge blockbusters, gaming has always been more than just a hobby – it's a universe of stories, strategies, and communities.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Gaming Card 1 -->
+                <div class="bg-slate-700 bg-opacity-80 p-6 rounded-2xl shadow-xl border border-purple-600 card-hover transition-all duration-300">
+                    <i class="fas fa-dragon text-5xl text-purple-400 mb-4"></i>
+                    <h3 class="text-2xl font-semibold text-white mb-2">RPG Realms</h3>
+                    <p class="text-slate-300">Immersing myself in epic narratives and character development. From fantasy to sci-fi, the deeper the lore, the better!</p>
+                </div>
+                <!-- Gaming Card 2 -->
+                <div class="bg-slate-700 bg-opacity-80 p-6 rounded-2xl shadow-xl border border-purple-600 card-hover transition-all duration-300">
+                    <i class="fas fa-robot text-5xl text-purple-400 mb-4"></i>
+                    <h3 class="text-2xl font-semibold text-white mb-2">Strategy & Simulation</h3>
+                    <p class="text-slate-300">Love the challenge of building empires, managing resources, and outwitting opponents in complex strategic games.</p>
+                </div>
+                <!-- Gaming Card 3 - Competitive Gaming -->
+                <div class="bg-slate-700 bg-opacity-80 p-6 rounded-2xl shadow-xl border border-purple-600 card-hover transition-all duration-300">
+                    <i class="fas fa-trophy text-5xl text-purple-400 mb-4"></i>
+                    <h3 class="text-2xl font-semibold text-white mb-2">Competitive Gaming</h3>
+                    <p class="text-slate-300">Pushing limits and honing skills in intense competitive titles like Counter-Strike, Brawlhalla, Valorant, and Dark and Darker.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Learning to Code Section -->
+    <section id="coding" class="relative py-20 px-6 md:px-12 bg-slate-900 coding-bg parallax-bg text-center">
+        <div class="gradient-overlay"></div>
+        <div class="relative z-30 container mx-auto bg-slate-800 bg-opacity-70 rounded-3xl p-8 md:p-12 shadow-2xl card-hover">
+            <h2 class="text-4xl md:text-5xl font-bold text-green-400 mb-6 flex items-center justify-center">
+                <i class="fas fa-laptop-code mr-4 text-green-300"></i>Learning to Code: My New Frontier
+            </h2>
+            <p class="text-lg md:text-xl leading-relaxed text-slate-200 mb-8">
+                Just as I explore vast digital worlds in games, I'm now delving into the intricate architecture of programming. Every line of code is a new puzzle, and every successful program is a new achievement unlocked.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Coding Card 1 -->
+                <div class="bg-slate-700 bg-opacity-80 p-6 rounded-2xl shadow-xl border border-green-600 card-hover transition-all duration-300">
+                    <i class="fas fa-terminal text-5xl text-green-400 mb-4"></i>
+                    <h3 class="text-2xl font-semibold text-white mb-2">Frontend Foundations</h3>
+                    <p class="text-slate-300">Mastering HTML, CSS, and JavaScript to build engaging user interfaces and interactive web experiences.</p>
+                </div>
+                <!-- Coding Card 2 -->
+                <div class="bg-slate-700 bg-opacity-80 p-6 rounded-2xl shadow-xl border border-green-600 card-hover transition-all duration-300">
+                    <i class="fas fa-brain text-5xl text-green-400 mb-4"></i>
+                    <h3 class="text-2xl font-semibold text-white mb-2">Problem Solving & Resource Utilization</h3>
+                    <p class="text-slate-300">Developing algorithmic thinking, debugging skills, and effective resource utilization to tackle complex coding challenges efficiently.</p>
+                </div>
+                <!-- Coding Card 3 -->
+                <div class="bg-slate-700 bg-opacity-80 p-6 rounded-2xl shadow-xl border border-green-600 card-hover transition-all duration-300">
+                    <i class="fab fa-python text-5xl text-green-400 mb-4"></i> <!-- Python Icon -->
+                    <h3 class="text-2xl font-semibold text-white mb-2">Python Development</h3>
+                    <p class="text-slate-300">Diving into Python for backend development, data analysis, and automation, expanding my coding toolkit.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- My Programs Section -->
+    <section id="my-programs" class="relative py-20 px-6 md:px-12 bg-slate-900 gaming-bg parallax-bg text-center">
+        <div class="gradient-overlay"></div>
+        <div class="relative z-30 container mx-auto bg-slate-800 bg-opacity-70 rounded-3xl p-8 md:p-12 shadow-2xl card-hover">
+            <h2 class="text-4xl md:text-5xl font-bold text-yellow-400 mb-6 flex items-center justify-center">
+                <i class="fas fa-folder-open mr-4 text-yellow-300"></i>My Programs Showcase
+            </h2>
+            <p class="text-lg md:text-xl leading-relaxed text-slate-200 mb-8">
+                Here are some visual mock-ups of programs I've developed, showcasing various functionalities.
+                **Note: These are static visual representations and are not interactive or runnable.**
+            </p>
+
+            <div class="flex justify-center space-x-4 mb-8">
+                <button id="tab-spacewize" class="program-tab px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+                    Disk Space Visualizer
+                </button>
+                <button id="tab-br3" class="program-tab px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+                    YouTube Moments Extractor
+                </button>
+                 <button id="tab-ytshortcreator" class="program-tab px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full shadow-lg transition-all duration-300 transform hover:scale-105">
+                    YouTube Shorts Creator
+                </button>
+            </div>
+
+            <div id="program-content-spacewize" class="program-visual active">
+                <div class="tkinter-mockup">
+                    <div class="tkinter-mockup-header">
+                        <span>NEXTGAMEBRO Disk Space Visualizer</span>
+                        <span>[ ] X</span>
+                    </div>
+                    <div class="tkinter-mockup-content text-left space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm font-semibold">Drive:</label>
+                            <div class="tkinter-mockup-combobox w-32">C:\ (Local Disk)</div>
+                            <div class="tkinter-mockup-button">Browse Folder</div>
+                            <div class="tkinter-mockup-button">Scan</div>
+                            <div class="tkinter-mockup-button">← Back</div>
+                            <label class="flex items-center text-sm ml-4">
+                                <input type="checkbox" checked class="mr-1"> ⚡ Fast Mode
+                            </label>
+                        </div>
+                        <div class="text-xs text-gray-600">📁 C:\ (Local Disk)</div>
+                        <div class="text-xs text-gray-600">Ready to scan</div>
+                        <div class="tkinter-mockup-progressbar">
+                            <div class="tkinter-mockup-progressbar-fill"></div>
+                        </div>
+                        <div class="tkinter-mockup-treemap-area">
+                            <div class="treemap-block" style="width: 40%; height: 60%; top: 5%; left: 5%;">Large Folder</div>
+                            <div class="treemap-block" style="width: 25%; height: 40%; top: 10%; left: 50%;">Medium File</div>
+                            <div class="treemap-block" style="width: 15%; height: 30%; top: 65%; left: 10%;">Small Dir</div>
+                            <div class="treemap-block" style="width: 10%; height: 20%; top: 75%; left: 70%;">Other</div>
+                        </div>
+                        <div class="text-xs text-gray-600">Status: ✅ Scan complete - Total: 123.4 GB - Items: 5678</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="program-content-br3" class="program-visual">
+                <div class="tkinter-mockup br3-mockup">
+                    <div class="tkinter-mockup-header">
+                        <span>YouTube Top Moments Extractor - Enhanced</span>
+                        <span>[ ] X</span>
+                    </div>
+                    <div class="tkinter-mockup-content text-left space-y-3">
+                        <div class="text-sm font-bold text-blue-400">Video URL</div>
+                        <input type="text" class="tkinter-mockup-input w-full" value="https://www.youtube.com/watch?v=mock_video_id" readonly>
+
+                        <div class="text-sm font-bold text-green-400">Enhanced Settings</div>
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold">Detection Method:</div>
+                            <div class="radio-option text-xs"><input type="radio" checked> Video Chapters (Best)</div>
+                            <div class="radio-option text-xs"><input type="radio"> Smart Highlights</div>
+                            <div class="radio-option text-xs"><input type="radio"> Even Spacing</div>
+                        </div>
+
+                        <div class="text-xs font-semibold">Clip Duration (5-120 seconds):</div>
+                        <div class="slider-mock w-full"></div>
+
+                        <div class="text-xs font-semibold">Max Clips (1-50):</div>
+                        <div class="slider-mock w-full"></div>
+
+                        <div class="text-xs font-semibold">Video Quality:</div>
+                        <div class="tkinter-mockup-combobox w-24">720p</div>
+
+                        <label class="flex items-center text-sm font-bold text-red-400">
+                            <input type="checkbox" checked class="mr-1"> 🧠 Create Combined Brainrot Video
+                        </label>
+                        <div class="space-y-1 ml-4">
+                            <div class="text-xs">Brainrot Video URL:</div>
+                            <input type="text" class="tkinter-mockup-input w-full" value="https://www.youtube.com/watch?v=brainrot_url" readonly>
+                            <div class="text-xs">Aspect Ratio:</div>
+                            <div class="tkinter-mockup-combobox w-32">9:16 (TikTok)</div>
+                        </div>
+
+                        <label class="flex items-center text-xs font-bold">
+                            <input type="checkbox" checked class="mr-1"> Enable GPU Acceleration (Faster Rendering)
+                        </label>
+                        <div class="text-xs text-gray-500">Available GPUs: NVIDIA detected</div>
+
+                        <div class="text-xs text-gray-600 mt-4">Progress: Ready</div>
+                        <div class="tkinter-mockup-progressbar"><div class="tkinter-mockup-progressbar-fill" style="width: 70%; background-color: #1976D2;"></div></div>
+
+                        <div class="tkinter-mockup-button w-48 mx-auto mt-4" style="text-align: center;">🚀 Extract Top Moments</div>
+                        <div class="tkinter-mockup-button w-48 mx-auto mt-2" style="text-align: center; background-color: #ef4444;">Delete Files in 'clips'</div>
+
+                        <div class="text-xs font-semibold text-gray-400 mt-4">Processing Status</div>
+                        <div class="mock-text-area">
+                            [10:30:01] 🚀 Enhanced YouTube Top Moments Extractor Ready!
+                            [10:30:02] 📈 New Features: Extended clip limits, GPU acceleration, multiple aspect ratios
+                            [10:30:03] 🎯 Detection Methods: Chapters, Smart Highlights, Even Sacing
+                            [10:30:05] ⚙️ GPU acceleration enabled
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="program-content-ytshortcreator" class="program-visual">
+                <div class="tkinter-mockup yt-shorts-mockup">
+                    <div class="tkinter-mockup-header">
+                        <span>YouTube Shorts Creator</span>
+                        <span>[ ] X</span>
+                    </div>
+                    <div class="tkinter-mockup-content text-left space-y-3">
+                        <div class="text-sm font-bold ttk-label-frame-text">Step 1: Enter Video URL</div>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" class="tkinter-mockup-input flex-grow" value="https://www.youtube.com/watch?v=youtube_short_video" readonly>
+                            <div class="tkinter-mockup-button">Download Video</div>
+                        </div>
+
+                        <div class="text-sm font-bold ttk-label-frame-text">Video Information</div>
+                        <div class="text-area-mock">
+                            Title: Awesome Gaming Highlights!
+                            Duration: 15:30
+                            Uploader: NextGameBro
+                            Views: 1,234,567
+                        </div>
+
+                        <div class="text-sm font-bold ttk-label-frame-text">Step 2: Configure Short Settings</div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <label class="flex items-center">Duration (seconds): <div class="tkinter-mockup-combobox ml-2 w-16">30</div></label>
+                            <label class="flex items-center">Start time (seconds): <input type="text" class="tkinter-mockup-input ml-2 w-16" value="60" readonly></label>
+                            <div class="tkinter-mockup-button col-span-2 text-center py-1">Auto-detect Best Segment</div>
+                            <label class="flex items-center col-span-2"><input type="checkbox" checked class="mr-1"> Add text overlay:</label>
+                            <input type="text" class="tkinter-mockup-input col-span-2" value="Epic Win!" readonly>
+                            <label class="flex items-center col-span-2">Output filename: <input type="text" class="tkinter-mockup-input ml-2 flex-grow" value="my_awesome_short" readonly></label>
+                        </div>
+
+                        <div class="flex justify-center space-x-4 mt-4">
+                            <div class="tkinter-mockup-button">Create Short</div>
+                            <div class="tkinter-mockup-button">Preview Last Short</div>
+                            <div class="tkinter-mockup-button">Open Output Folder</div>
+                        </div>
+
+                        <div class="text-xs text-gray-600 mt-4">Progress: Ready to download video</div>
+                        <div class="tkinter-mockup-progressbar"><div class="tkinter-mockup-progressbar-fill" style="width: 40%;"></div></div>
+                        <div class="text-area-mock mt-2">
+                            [11:05:01] Download started...
+                            [11:05:15] Video info retrieved.
+                        </div>
+
+                        <div class="text-sm font-bold ttk-label-frame-text mt-4">Batch Processing</div>
+                        <div class="text-xs text-gray-600">Enter multiple URLs (one per line):</div>
+                        <div class="text-area-mock" style="min-height: 50px;">
+                            url1
+                            url2
+                            url3
+                        </div>
+                        <div class="flex justify-center space-x-4 mt-2">
+                            <div class="tkinter-mockup-button">Load URLs from File</div>
+                            <div class="tkinter-mockup-button">Process All URLs</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="relative py-20 px-6 md:px-12 bg-slate-900 about-bg parallax-bg text-center">
+        <div class="gradient-overlay"></div>
+        <div class="relative z-30 container mx-auto bg-slate-800 bg-opacity-70 rounded-3xl p-8 md:p-12 shadow-2xl card-hover">
+            <h2 class="text-4xl md:text-5xl font-bold text-red-400 mb-6 flex items-center justify-center">
+                <i class="fas fa-envelope-open-text mr-4 text-red-300"></i>Contact Me: Establish Comms
+            </h2>
+            <p class="text-lg md:text-xl leading-relaxed text-slate-200 mb-4">
+                Whether you're a fellow gamer, a seasoned developer, or just want to say hello, feel free to reach out directly!
+            </p>
+            <p class="text-xl md:text-2xl font-semibold text-white mb-6">
+                Email: <a href="mailto:Carson5041@gmail.com?subject=Inquiry from your website&body=Hello Carson," class="text-blue-400 hover:text-blue-300 transition-colors duration-300">Carson5041@gmail.com</a>
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 bg-opacity-90 py-8 px-6 md:px-12 text-center text-slate-400 rounded-t-xl shadow-inner">
+        <p>&copy; 2025 Carson's Digital Nexus. All rights reserved. Built with passion and a lot of coffee.</p>
+        <div class="flex justify-center space-x-6 mt-4">
+            <!-- Social media links -->
+            <a href="https://www.twitch.tv/next_game_bro" target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-blue-400 transition-colors duration-300"><i class="fab fa-twitch text-2xl"></i> Twitch: Next_Game_Bro</a>
+            <span class="text-slate-400 hover:text-blue-400 transition-colors duration-300"><i class="fab fa-discord text-2xl"></i> Discord: nextgamebro</span>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+                // Close mobile menu if open
+                if (!document.getElementById('mobile-menu').classList.contains('hidden')) {
+                    document.getElementById('mobile-menu').classList.add('hidden');
+                }
+            });
+        });
+
+        // Mobile menu toggle
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (event) => {
+            if (!mobileMenu.contains(event.target) && !mobileMenuButton.contains(event.target) && !mobileMenu.classList.contains('hidden')) {
+                mobileMenu.classList.add('hidden');
+            }
+        });
+
+        // --- Three.js Starfield Background (simplified and stable) ---
+        let scene, camera, renderer, stars;
+        const canvas = document.getElementById('starfield-canvas');
+        let mouseX = 0, mouseY = 0; // Track mouse position for subtle parallax
+
+        function initStarfield() {
+            try {
+                scene = new THREE.Scene();
+                // Camera positioned further back to give a wider view of stars
+                camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+                camera.position.z = 100; // Adjusted camera position
+
+                renderer = new THREE.WebGLRenderer({
+                    canvas: canvas,
+                    antialias: true,
+                    alpha: true // Allow body background to show through if needed, though it's black here
+                });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+
+                // Create stars (more of them, spread out)
+                const starGeo = new THREE.BufferGeometry();
+                const positions = [];
+                const starCount = 10000; // Increased star count for density
+                const starFieldSize = 1000; // Spread stars over a larger area
+
+                for (let i = 0; i < starCount; i++) {
+                    const x = THREE.MathUtils.randFloatSpread(starFieldSize * 2);
+                    const y = THREE.MathUtils.randFloatSpread(starFieldSize * 2);
+                    const z = THREE.MathUtils.randFloatSpread(starFieldSize * 2);
+                    positions.push(x, y, z);
+                }
+                starGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+                const starMaterial = new THREE.PointsMaterial({
+                    color: 0xffffff, // White stars
+                    size: 1.0, // Smaller star size for finer detail
+                    transparent: true,
+                    opacity: 0.8,
+                    blending: THREE.AdditiveBlending, // Makes stars brighter and more ethereal
+                });
+                stars = new THREE.Points(starGeo, starMaterial);
+                scene.add(stars);
+
+                window.addEventListener('resize', onWindowResize, false);
+                document.addEventListener('mousemove', onDocumentMouseMove, false); // Listen for mouse movement
+                animateStarfield();
+            } catch (e) {
+                console.error("Error initializing Three.js starfield:", e);
+                // Fallback for environments where WebGL is not supported
+                canvas.style.display = 'none'; // Hide the canvas if it fails
+                document.body.style.backgroundImage = 'linear-gradient(to bottom, #0f172a, #1a202c)'; // Simple gradient fallback
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundAttachment = 'fixed';
+            }
+        }
+
+        function onDocumentMouseMove(event) {
+            // Normalize mouse position to a range of -0.5 to 0.5 (or similar)
+            mouseX = (event.clientX / window.innerWidth) - 0.5;
+            mouseY = (event.clientY / window.innerHeight) - 0.5;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animateStarfield() {
+            if (!renderer) return; // Stop if renderer was not initialized
+
+            requestAnimationFrame(animateStarfield);
+
+            // Subtle rotation for stars
+            stars.rotation.x += 0.00005;
+            stars.rotation.y += 0.0001;
+
+            // Subtle camera movement based on mouse for parallax effect
+            // Adjust the multiplier (e.g., 5, 10) for more or less pronounced parallax
+            camera.position.x += (mouseX * 10 - camera.position.x) * 0.01;
+            camera.position.y += (-mouseY * 10 - camera.position.y) * 0.01;
+            camera.lookAt(scene.position); // Keep camera looking at the center
+
+            renderer.render(scene, camera);
+        }
+
+        // Initialize starfield on window load
+        window.onload = function () {
+            initStarfield();
+        };
+
+
+        // --- Fade-in on scroll effect (using Intersection Observer) ---
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100', 'translate-y-0');
+                    entry.target.classList.remove('opacity-0', 'translate-y-10');
+                } else {
+                    // Optional: fade out when not intersecting for repeat animations
+                    // entry.target.classList.add('opacity-0', 'translate-y-10');
+                    // entry.target.classList.remove('opacity-100', 'translate-y-0');
+                }
+            });
+        }, {
+            threshold: 0.1 // Trigger when 10% of the element is visible
+        });
+
+        document.querySelectorAll('section > div').forEach(sectionContent => {
+            sectionContent.classList.add('opacity-0', 'translate-y-10', 'transition-all', 'duration-700', 'ease-out');
+            observer.observe(sectionContent);
+        });
+
+        // --- Typing effect for hero title (re-trigger on page load/initial render) ---
+        // This is handled by CSS animations (`typing-text` class).
+        // If the user scrolls away and comes back, or if it's a SPA,
+        // you might need JS to re-add/remove the class, but for a static page,
+        // the initial CSS animation is sufficient.
+    </script>
+    <script>
+        // Program Tabs Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const programTabs = document.querySelectorAll('.program-tab');
+            const programVisuals = document.querySelectorAll('.program-visual');
+
+            function showProgram(programId) {
+                programVisuals.forEach(visual => {
+                    visual.classList.remove('active');
+                });
+                document.getElementById(programId).classList.add('active');
+
+                programTabs.forEach(tab => {
+                    tab.classList.remove('bg-indigo-700');
+                    tab.classList.add('bg-indigo-600');
+                });
+                document.getElementById('tab-' + programId.replace('program-content-', '')).classList.remove('bg-indigo-600');
+                document.getElementById('tab-' + programId.replace('program-content-', '')).classList.add('bg-indigo-700');
+            }
+
+            programTabs.forEach(tab => {
+                tab.addEventListener('click', (event) => {
+                    const programId = 'program-content-' + event.target.id.replace('tab-', '');
+                    showProgram(programId);
+                });
+            });
+
+            // Show the first program by default
+            if (programVisuals.length > 0) {
+                showProgram(programVisuals[0].id);
+            }
+        });
+
+
+        // Disable right-click context menu
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
+        // Disable common developer tool shortcuts
+        document.addEventListener('keydown', function(e) {
+            // F12 key
+            if (e.keyCode == 123) {
+                e.preventDefault();
+            }
+            // Ctrl+Shift+I (Cmd+Option+I on Mac)
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 73) {
+                e.preventDefault();
+            }
+            // Ctrl+Shift+J (Cmd+Option+J on Mac)
+            if (e.ctrlKey && e.shiftKey && e.keyCode == 74) {
+                e.preventDefault();
+            }
+            // Ctrl+U (Cmd+U on Mac) - for viewing source
+            if (e.ctrlKey && e.keyCode == 85) {
+                e.preventDefault();
+            }
+            // Ctrl+S (Cmd+S on Mac) - for saving page
+            if (e.ctrlKey && e.keyCode == 83) {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
